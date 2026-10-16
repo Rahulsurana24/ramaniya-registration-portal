@@ -1,0 +1,12 @@
+import { google } from "googleapis";
+import { Readable } from "node:stream";
+
+type RegistrationRow = { timestamp: string; registrationId: string; fullName: string; fatherName: string; phone: string; city: string; photoLink: string; paymentRef: string; paymentLink: string; status: string; notes: string };
+function clients() { const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON; if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing."); const auth = new google.auth.GoogleAuth({ credentials: JSON.parse(raw), scopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"] }); return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }) }; }
+
+export async function uploadFileToDrive(fileBuffer: Buffer, fileName: string, mimeType: string, folderId: string) { const { drive } = clients(); const result = await drive.files.create({ requestBody: { name: fileName, parents: [folderId] }, media: { mimeType, body: Readable.from(fileBuffer) }, fields: "id" }); const id = result.data.id; if (!id) throw new Error("Google Drive did not return a file ID."); await drive.permissions.create({ fileId: id, requestBody: { type: "anyone", role: "reader" } }); return `https://drive.google.com/file/d/${id}/view`; }
+
+export async function appendRegistrationRow(data: RegistrationRow) { const { sheets } = clients(); const sheetId = process.env.GOOGLE_SHEET_ID; if (!sheetId) throw new Error("GOOGLE_SHEET_ID is missing."); await sheets.spreadsheets.values.append({ spreadsheetId: sheetId, range: "A:K", valueInputOption: "USER_ENTERED", requestBody: { values: [[data.timestamp, data.registrationId, data.fullName, data.fatherName, data.phone, data.city, data.photoLink, data.paymentRef, data.paymentLink, data.status, data.notes]] } }); }
+
+export function googleClients() { return clients(); }
+export async function upload(drive: any, file: File, name: string, folder: string) { const result = await drive.files.create({ requestBody: { name, parents: [folder] }, media: { mimeType: file.type || "image/jpeg", body: Readable.from(Buffer.from(await file.arrayBuffer())) }, fields: "id" }); if (!result.data.id) throw new Error("Google Drive upload failed."); await drive.permissions.create({ fileId: result.data.id, requestBody: { type: "anyone", role: "reader" } }); return `https://drive.google.com/file/d/${result.data.id}/view`; }

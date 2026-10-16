@@ -1,0 +1,1 @@
+import "./globals.css";export const metadata={title:"Ramaniya Utsav 2026 Registration",description:"Daughter registration portal"};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
